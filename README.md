@@ -31,7 +31,7 @@ Documentação interativa: http://127.0.0.1:8000/docs
 - `POST /auth/login` — entrar e receber token
 - `GET /users/me` — consultar perfil autenticado
 - `POST /tasks/` — criar tarefa
-- `GET /tasks/` — listar tarefas do usuário
+- `GET /tasks/` — listar tarefas do usuário (filtros combináveis: `?status=pendente|concluida`, `?prioridade=baixa|media|alta|urgente`, `?prazoAte=AAAA-MM-DD`, `?busca=texto`)
 - `GET /tasks/{task_id}` — consultar tarefa
 - `PATCH /tasks/{task_id}` — editar tarefa; aceita `status` (`pendente` ou `concluida`) e registra `concluido_em` (RN-03)
 - `DELETE /tasks/{task_id}` — excluir tarefa

@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-from app.enums import StatusTarefa
+from app.enums import PrioridadeTarefa, StatusTarefa
 
 class UserCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
@@ -25,18 +25,22 @@ class TokenOut(BaseModel):
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=180)
     description: str | None = None
+    prioridade: PrioridadeTarefa = PrioridadeTarefa.MEDIA
+    prazo: date | None = None
 
 class TaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=180)
     description: str | None = None
     completed: bool | None = None
     status: StatusTarefa | None = None
+    prioridade: PrioridadeTarefa | None = None
+    prazo: date | None = None
 
-    @field_validator("status")
+    @field_validator("status", "prioridade")
     @classmethod
-    def status_nao_pode_ser_nulo(cls, value):
+    def campo_nao_pode_ser_nulo(cls, value):
         if value is None:
-            raise ValueError("O status não pode ser nulo.")
+            raise ValueError("Este campo não pode ser nulo.")
         return value
 
 class TaskOut(BaseModel):
@@ -45,6 +49,8 @@ class TaskOut(BaseModel):
     description: str | None
     completed: bool
     status: StatusTarefa
+    prioridade: PrioridadeTarefa
+    prazo: date | None = None
     owner_id: int
     created_at: datetime
     concluido_em: datetime | None = None

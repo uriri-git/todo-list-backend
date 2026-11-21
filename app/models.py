@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from datetime import date, datetime, timezone
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
-from app.enums import StatusTarefa
+from app.enums import PrioridadeTarefa, StatusTarefa
 
 class User(Base):
     __tablename__ = "users"
@@ -23,6 +23,8 @@ class Task(Base):
     title: Mapped[str] = mapped_column(String(180), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    prioridade: Mapped[str] = mapped_column(String(20), default=PrioridadeTarefa.MEDIA.value, nullable=False)
+    prazo: Mapped[date | None] = mapped_column(Date, nullable=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     concluido_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
