@@ -35,3 +35,20 @@ _PESOS = {
     PrioridadeTarefa.MEDIA: 2,
     PrioridadeTarefa.BAIXA: 3,
 }
+
+
+class CampoOrdenacao(str, Enum):
+    """Campos pelos quais a lista pode ser ordenada.
+
+    É um enum para que um valor fora da lista (?ordenarPor=titulo) vire 422 com os
+    valores aceitos, em vez de cair em silêncio na ordenação padrão.
+    """
+
+    CRIADO_EM = "criadoEm"
+    PRAZO = "prazo"
+    PRIORIDADE = "prioridade"
+
+
+class Ordem(str, Enum):
+    ASC = "asc"
+    DESC = "desc"

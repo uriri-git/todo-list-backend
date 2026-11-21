@@ -1,11 +1,11 @@
 from datetime import date
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.enums import PrioridadeTarefa, StatusTarefa
+from app.enums import CampoOrdenacao, Ordem, PrioridadeTarefa, StatusTarefa
 from app.models import Task, User
 from app.schemas import TaskCreate, TaskOut, TaskUpdate
 
@@ -27,16 +27,27 @@ def create_task(data: TaskCreate, db: Session = Depends(get_db), user: User = De
 
 @router.get("/", response_model=list[TaskOut])
 def list_tasks(
+    response: Response,
     # O parâmetro se chama status_tarefa porque "status" já é o módulo do FastAPI importado acima;
     # o alias mantém o nome público "status" na URL.
     status_tarefa: Annotated[StatusTarefa | None, Query(alias="status")] = None,
     prioridade: Annotated[PrioridadeTarefa | None, Query()] = None,
     prazo_ate: Annotated[date | None, Query(alias="prazoAte", description="Somente tarefas com prazo até esta data")] = None,
     busca: Annotated[str | None, Query(max_length=200, description="Texto contido no título (sem diferenciar maiúsculas)")] = None,
+    ordenar_por: Annotated[CampoOrdenacao, Query(alias="ordenarPor")] = CampoOrdenacao.CRIADO_EM,
+    ordem: Annotated[Ordem, Query()] = Ordem.DESC,
+    limite: Annotated[int, Query(ge=1, le=1000, alias="limit")] = 100,
+    deslocamento: Annotated[int, Query(ge=0, alias="offset")] = 0,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Lista as tarefas do usuário logado, com filtros opcionais que se combinam.
+
+    Ordenação: ?ordenarPor=criadoEm|prazo|prioridade e ?ordem=asc|desc (padrão: mais recentes
+    primeiro). Na ordenação por prazo, as tarefas sem prazo vêm por último, nos dois sentidos.
+
+    Paginação: ?limit= e ?offset=. O cabeçalho X-Total-Count traz o total de tarefas que
+    atendem aos filtros, ignorando limit/offset.
 
     Nenhum resultado é uma lista vazia, não um 404.
     """
@@ -52,7 +63,27 @@ def list_tasks(
         # icontains = "contém", sem diferenciar maiúsculas. autoescape faz % e _ serem
         # procurados como texto comum, e não como curingas do LIKE.
         query = query.where(Task.title.icontains(busca, autoescape=True))
-    return db.scalars(query.order_by(Task.id)).all()
+
+    # O total é contado ANTES de aplicar limit/offset; contar depois nunca passaria do tamanho da página.
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+
+    # Prioridade ordena pelo peso (urgente, alta, media, baixa), e não pelo texto (ordem alfabética).
+    colunas = {
+        CampoOrdenacao.CRIADO_EM: Task.created_at,
+        CampoOrdenacao.PRAZO: Task.prazo,
+        CampoOrdenacao.PRIORIDADE: case(PrioridadeTarefa.mapa_de_pesos(), value=Task.prioridade, else_=99),
+    }
+    coluna = colunas[ordenar_por]
+    ordenacao = [coluna.desc() if ordem is Ordem.DESC else coluna.asc()]
+    if ordenar_por is CampoOrdenacao.PRAZO:
+        # Cada banco põe o NULL num lugar diferente; este critério extra manda as sem prazo para o fim.
+        ordenacao.insert(0, case((Task.prazo.is_(None), 1), else_=0))
+    # Desempate por id: evita que tarefas com o mesmo valor troquem de lugar entre uma página e outra.
+    ordenacao.append(Task.id.desc())
+
+    tarefas = db.scalars(query.order_by(*ordenacao).offset(deslocamento).limit(limite)).all()
+    response.headers["X-Total-Count"] = str(total)
+    return tarefas
 
 @router.get("/{task_id}", response_model=TaskOut)
 def get_task(task_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
