@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.enums import StatusTarefa
 from app.models import Task, User
 from app.schemas import TaskCreate, TaskOut, TaskUpdate
 
@@ -32,9 +33,22 @@ def get_task(task_id: int, db: Session = Depends(get_db), user: User = Depends(g
 
 @router.patch("/{task_id}", response_model=TaskOut)
 def update_task(task_id: int, data: TaskUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Atualiza parcialmente uma tarefa.
+
+    Quando o status muda (por "status" ou por "completed"), a data de conclusão
+    é ajustada pela própria tarefa, conforme a RN-03. Se os dois vierem juntos,
+    vale o "status".
+    """
     task = owned_task(task_id, user, db)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    new_status = changes.pop("status", None)
+    completed = changes.pop("completed", None)
+    for field, value in changes.items():
         setattr(task, field, value)
+    if new_status is not None:
+        task.definir_status(new_status)
+    elif completed is not None:
+        task.definir_status(StatusTarefa.CONCLUIDA if completed else StatusTarefa.PENDENTE)
     db.commit()
     db.refresh(task)
     return task

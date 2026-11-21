@@ -33,7 +33,7 @@ Documentação interativa: http://127.0.0.1:8000/docs
 - `POST /tasks/` — criar tarefa
 - `GET /tasks/` — listar tarefas do usuário
 - `GET /tasks/{task_id}` — consultar tarefa
-- `PATCH /tasks/{task_id}` — editar tarefa
+- `PATCH /tasks/{task_id}` — editar tarefa; aceita `status` (`pendente` ou `concluida`) e registra `concluido_em` (RN-03)
 - `DELETE /tasks/{task_id}` — excluir tarefa
 
 As rotas de perfil e tarefas exigem `Authorization: Bearer <token>`.
