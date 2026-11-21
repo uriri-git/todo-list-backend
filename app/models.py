@@ -55,6 +55,16 @@ class Task(Base):
         self.completed = False
         self.concluido_em = None
 
+    def esta_atrasada(self, hoje: date | None = None) -> bool:
+        """Informa se o prazo venceu com a tarefa ainda pendente.
+
+        Nunca atrasam: tarefa sem prazo e tarefa concluída (mesmo concluída depois do prazo).
+        Vencer hoje ainda não é atraso: só a partir de amanhã.
+        """
+        if self.prazo is None or self.completed:
+            return False
+        return self.prazo < (hoje or date.today())
+
     def definir_status(self, novo_status: StatusTarefa | str, agora: datetime | None = None) -> None:
         """Aplica o status informado pela operação correspondente (concluir ou reabrir)."""
         if StatusTarefa(novo_status) is StatusTarefa.CONCLUIDA:

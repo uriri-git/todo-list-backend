@@ -7,7 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.enums import CampoOrdenacao, Ordem, PrioridadeTarefa, StatusTarefa
 from app.models import Task, User
-from app.schemas import TaskCreate, TaskOut, TaskUpdate
+from app.schemas import ResumoOut, TaskCreate, TaskOut, TaskUpdate
 
 router = APIRouter(prefix="/tasks", tags=["Tarefas"])
 
@@ -84,6 +84,22 @@ def list_tasks(
     tarefas = db.scalars(query.order_by(*ordenacao).offset(deslocamento).limit(limite)).all()
     response.headers["X-Total-Count"] = str(total)
     return tarefas
+
+# A posição importa: rota fixa vem ANTES da rota com parâmetro. Se "/{task_id}" viesse primeiro,
+# "/tasks/resumo" casaria com ela e "resumo" seria lido como um task_id inválido (422).
+@router.get("/resumo", response_model=ResumoOut)
+def resumo_tasks(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Total, pendentes, concluídas e atrasadas: os números da página Painel."""
+    # Todas as tarefas do usuário, sem filtro nem limite: o resumo não pode olhar só uma página.
+    tarefas = db.scalars(select(Task).where(Task.owner_id == user.id)).all()
+    hoje = date.today()  # calculado uma vez, para todas as tarefas valerem o mesmo dia
+    concluidas = sum(1 for t in tarefas if t.status is StatusTarefa.CONCLUIDA)
+    return ResumoOut(
+        total=len(tarefas),
+        pendentes=len(tarefas) - concluidas,
+        concluidas=concluidas,
+        atrasadas=sum(1 for t in tarefas if t.esta_atrasada(hoje)),
+    )
 
 @router.get("/{task_id}", response_model=TaskOut)
 def get_task(task_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

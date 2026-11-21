@@ -55,3 +55,12 @@ class TaskOut(BaseModel):
     created_at: datetime
     concluido_em: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
+
+class ResumoOut(BaseModel):
+    """Números do Painel, calculados no servidor."""
+    total: int
+    pendentes: int
+    concluidas: int
+    atrasadas: int
+
+    model_config = ConfigDict(from_attributes=True)
